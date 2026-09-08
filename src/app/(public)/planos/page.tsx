@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { listActivePlans } from "@/server/services/billing.service";
 import Link from "next/link";
 
@@ -31,3 +32,4 @@ export default async function PlanosPage() {
     </main>
   );
 }
+
