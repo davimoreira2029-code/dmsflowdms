@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: dms-flow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dmsflow
+      POSTGRES_PASSWORD: dmsflow_dev_password
+      POSTGRES_DB: dmsflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - dms_flow_pgdata:/var/lib/postgresql/data
+
+volumes:
+  dms_flow_pgdata:

@@ -1,0 +1,1 @@
+import { PrismaClient } from "@prisma/client"; const prisma = new PrismaClient(); const user = await prisma.user.findUnique({ where: { email: "davi.moreira@dmstanatopraxia.com.br" }, select: { id: true, email: true, status: true, role: true, mustChangePassword: true, sessionVersion: true } }); console.log(JSON.stringify(user, null, 2)); await prisma.$disconnect();

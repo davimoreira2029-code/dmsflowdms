@@ -1,0 +1,921 @@
+// DMS FLOW — Schema completo do banco de dados (Fase 2)
+//
+// Convenções:
+// - Toda tabela de domínio carrega company_id e é indexada por ele.
+// - snake_case no banco via @map/@@map, camelCase no código (padrão Prisma).
+// - UUID em todas as PKs, timestamps em todas as tabelas, soft delete
+//   (deletedAt) nas entidades que o item 33 do comando original pede.
+// - RBAC granular (roles/permissions/role_permissions/role_assignments)
+//   existe aqui como SCHEMA apenas — a lógica que os usa é escopo da Fase 5.
+//   Até lá, os guards continuam usando o campo User.role (enum), que já
+//   funciona desde a Fase 1/3 e não é removido nesta fase.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN_EMPRESA
+  GERENTE
+  SUPERVISOR
+  OPERACIONAL
+  VISUALIZADOR
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CompanyStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  SUSPENDED
+  EXPIRED
+}
+
+enum PasswordResetStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  EXPIRED
+  CANCELED
+}
+
+enum ServiceStatus {
+  NOVO
+  EM_PREPARACAO
+  EM_ANDAMENTO
+  AGUARDANDO
+  FINALIZADO
+  ARQUIVADO
+}
+
+enum ChecklistItemStatus {
+  PENDENTE
+  CONCLUIDO
+  NAO_APLICAVEL
+}
+
+enum TanatopraxiaTipo {
+  NAO_REALIZAR
+  REALIZAR_TANATOPRAXIA
+  EMBALSAMAMENTO
+}
+
+enum VehicleStatus {
+  DISPONIVEL
+  EM_USO
+  MANUTENCAO
+  INATIVO
+}
+
+enum MaintenanceType {
+  PREVENTIVA
+  CORRETIVA
+}
+
+enum MaintenanceStatus {
+  AGENDADA
+  EM_ANDAMENTO
+  CONCLUIDA
+  CANCELADA
+}
+
+enum EmployeeStatus {
+  ATIVO
+  INATIVO
+}
+
+enum TaskPriority {
+  BAIXA
+  NORMAL
+  ALTA
+  URGENTE
+}
+
+enum TaskStatus {
+  A_FAZER
+  EM_ANDAMENTO
+  CONCLUIDA
+  CANCELADA
+}
+
+enum InventoryCategory {
+  URNAS
+  MATERIAIS
+  EPIS
+  PRODUTOS_LABORATORIAIS
+  ORNAMENTACAO
+  LIMPEZA
+  OUTROS
+}
+
+enum InventoryMovementType {
+  ENTRADA
+  SAIDA
+  AJUSTE
+}
+
+enum UrnStatus {
+  DISPONIVEL
+  RESERVADA
+  UTILIZADA
+  INATIVA
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  SUSPENDED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  REFUNDED
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TENANCY / IDENTIDADE
+// ─────────────────────────────────────────────────────────────────
+
+model Company {
+  id           String        @id @default(uuid())
+  razaoSocial  String        @map("razao_social")
+  nomeFantasia String        @map("nome_fantasia")
+  cnpj         String        @unique
+  email        String
+  telefone     String?
+  whatsapp     String?
+  cep          String?
+  endereco     String?
+  numero       String?
+  complemento  String?
+  bairro       String?
+  cidade       String?
+  estado       String?
+  logoUrl      String?       @map("logo_url")
+  status       CompanyStatus @default(TRIAL)
+  trialEndsAt  DateTime?     @map("trial_ends_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  users                 User[]
+  passwordResetRequests PasswordResetRequest[]
+  auditLogs             AuditLog[]
+  settings              CompanySetting[]
+  companyModules        CompanyModule[]
+  roleAssignments       RoleAssignment[]
+  services              Service[]
+  serviceAssignments    ServiceAssignment[]
+  serviceEvents         ServiceEvent[]
+  checklistTemplates    ChecklistTemplate[]
+  serviceChecklists     ServiceChecklist[]
+  tanatopraxiaRecords   TanatopraxiaRecord[]
+  vehicles              Vehicle[]
+  vehicleMovements      VehicleMovement[]
+  vehicleMaintenances   VehicleMaintenance[]
+  employees             Employee[]
+  shifts                Shift[]
+  inventoryProducts     InventoryProduct[]
+  inventoryMovements    InventoryMovement[]
+  urns                  Urn[]
+  tasks                 Task[]
+  taskComments          TaskComment[]
+  taskAttachments       TaskAttachment[]
+  notifications         Notification[]
+  subscriptions         Subscription[]
+  payments              Payment[]
+
+  @@map("companies")
+}
+
+model User {
+  id                 String     @id @default(uuid())
+  companyId          String?    @map("company_id")
+  company            Company?   @relation(fields: [companyId], references: [id])
+  name               String
+  email              String     @unique
+  passwordHash       String     @map("password_hash")
+  role               UserRole   @default(OPERACIONAL)
+  status             UserStatus @default(ACTIVE)
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
+  sessionVersion     Int        @default(0) @map("session_version")
+  emailVerifiedAt    DateTime?  @map("email_verified_at")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  passwordResetRequestsMade      PasswordResetRequest[]   @relation("RequestedBy")
+  passwordResetRequestsProcessed PasswordResetRequest[]   @relation("ProcessedBy")
+  emailVerificationTokens        EmailVerificationToken[]
+  auditLogs                      AuditLog[]
+  roleAssignments                RoleAssignment[]
+  employeeProfile                Employee?
+  servicesResponsavel            Service[]               @relation("ServiceResponsavel")
+  serviceAssignments             ServiceAssignment[]
+  serviceEvents                  ServiceEvent[]
+  serviceChecklistItemsChecked   ServiceChecklistItem[]
+  tanatopraxiaRecords            TanatopraxiaRecord[]    @relation("TanatopraxiaResponsavel")
+  vehiclesResponsavel            Vehicle[]               @relation("VehicleResponsavel")
+  vehicleMovementsAsMotorista    VehicleMovement[]       @relation("MovementMotorista")
+  vehicleMaintenancesResponsavel VehicleMaintenance[]    @relation("MaintenanceResponsavel")
+  inventoryMovements             InventoryMovement[]
+  tasksResponsavel               Task[]                  @relation("TaskResponsavel")
+  tasksCriador                   Task[]                  @relation("TaskCriador")
+  taskComments                   TaskComment[]
+  taskAttachments                TaskAttachment[]
+  notifications                  Notification[]
+
+  @@index([companyId])
+  @@map("users")
+}
+
+// RBAC granular — schema criado na Fase 2, lógica de uso é da Fase 5.
+model Role {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  isSystemRole Boolean  @default(true) @map("is_system_role")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  permissions     RolePermission[]
+  roleAssignments RoleAssignment[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id   String @id @default(uuid())
+  code String @unique
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id")
+  role         Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// Mapeada para a tabela "user_roles" do comando original. Nomeada
+// RoleAssignment no Prisma para não colidir com o enum UserRole.
+model RoleAssignment {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId    String   @map("role_id")
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  companyId String?  @map("company_id")
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, roleId, companyId])
+  @@index([companyId])
+  @@map("user_roles")
+}
+
+model CompanySetting {
+  companyId String   @map("company_id")
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  key       String
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@id([companyId, key])
+  @@map("company_settings")
+}
+
+/// Configurações globais do sistema (não por empresa) — ex.: feature flags.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+/// Catálogo fixo de módulos comercializáveis (item 6). Não é editável
+/// pelo cliente — só o Super Admin (via seed/migration) define quais
+/// módulos existem na plataforma.
+model Module {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  companies CompanyModule[]
+
+  @@map("modules")
+}
+
+/// Ativação de módulo por empresa. Ausência de registro para um par
+/// (company, module) é tratada como DESATIVADO — modelo de concessão
+/// explícita, mais seguro para um produto pago por módulo.
+model CompanyModule {
+  companyId String   @map("company_id")
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  moduleId  String   @map("module_id")
+  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  enabled   Boolean  @default(true)
+  grantedAt DateTime @default(now()) @map("granted_at")
+
+  @@id([companyId, moduleId])
+  @@index([companyId])
+  @@map("company_modules")
+}
+
+model PasswordResetRequest {
+  id             String              @id @default(uuid())
+  userId         String              @map("user_id")
+  user           User                @relation("RequestedBy", fields: [userId], references: [id])
+  companyId      String?             @map("company_id")
+  company        Company?            @relation(fields: [companyId], references: [id])
+  requestedEmail String              @map("requested_email")
+  status         PasswordResetStatus @default(PENDING)
+  reason         String?
+  requestedAt    DateTime            @default(now()) @map("requested_at")
+  processedAt    DateTime?           @map("processed_at")
+  processedById  String?             @map("processed_by")
+  processedBy    User?               @relation("ProcessedBy", fields: [processedById], references: [id])
+  adminNotes     String?             @map("admin_notes")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@index([status])
+  @@index([userId])
+  @@map("password_reset_requests")
+}
+
+/// Token de confirmação de e-mail (item 8). Hash guardado, nunca o token
+/// em texto puro — mesmo princípio usado para senhas.
+model EmailVerificationToken {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  companyId String?  @map("company_id")
+  company   Company? @relation(fields: [companyId], references: [id])
+  userId    String?  @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  oldData   Json?    @map("old_data")
+  newData   Json?    @map("new_data")
+  ip        String?
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// OPERACIONAL — SERVIÇOS
+// ─────────────────────────────────────────────────────────────────
+
+model Service {
+  id              String        @id @default(uuid())
+  companyId       String        @map("company_id")
+  company         Company       @relation(fields: [companyId], references: [id])
+  numero          Int           @default(autoincrement())
+  status          ServiceStatus @default(NOVO)
+  tipo            String
+  data            DateTime
+  hora            String
+  falecidoNome    String        @map("falecido_nome")
+  responsavelId   String?       @map("responsavel_id")
+  responsavel     User?         @relation("ServiceResponsavel", fields: [responsavelId], references: [id])
+  local           String?
+  destino         String?
+  veiculoId       String?       @map("veiculo_id")
+  veiculo         Vehicle?      @relation(fields: [veiculoId], references: [id])
+  urnaId          String?       @map("urna_id")
+  urna            Urn?          @relation(fields: [urnaId], references: [id])
+  ornamentacao    String?
+  observacoes     String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  assignments         ServiceAssignment[]
+  events              ServiceEvent[]
+  checklists          ServiceChecklist[]
+  tanatopraxiaRecords TanatopraxiaRecord[]
+  vehicleMovements    VehicleMovement[]
+  tasks               Task[]
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@map("services")
+}
+
+model ServiceAssignment {
+  id         String   @id @default(uuid())
+  serviceId  String   @map("service_id")
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  companyId  String   @map("company_id")
+  company    Company  @relation(fields: [companyId], references: [id])
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  funcao     String?
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  @@index([serviceId])
+  @@index([companyId])
+  @@map("service_assignments")
+}
+
+/// Timeline do serviço (item 12 do comando original).
+model ServiceEvent {
+  id        String   @id @default(uuid())
+  serviceId String   @map("service_id")
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  companyId String   @map("company_id")
+  company   Company  @relation(fields: [companyId], references: [id])
+  tipo      String
+  userId    String?  @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([serviceId])
+  @@index([companyId])
+  @@map("service_events")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CHECKLISTS
+// ─────────────────────────────────────────────────────────────────
+
+model ChecklistTemplate {
+  id         String   @id @default(uuid())
+  companyId  String   @map("company_id")
+  company    Company  @relation(fields: [companyId], references: [id])
+  nome       String
+  descricao  String?
+  categoria  String?
+  ativo      Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  items             ChecklistTemplateItem[]
+  serviceChecklists ServiceChecklist[]
+
+  @@index([companyId])
+  @@map("checklist_templates")
+}
+
+model ChecklistTemplateItem {
+  id          String            @id @default(uuid())
+  templateId  String            @map("template_id")
+  template    ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  descricao   String
+  ordem       Int               @default(0)
+  obrigatorio Boolean           @default(true)
+  ativo       Boolean           @default(true)
+
+  @@index([templateId])
+  @@map("checklist_template_items")
+}
+
+model ServiceChecklist {
+  id         String            @id @default(uuid())
+  serviceId  String            @map("service_id")
+  service    Service           @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  companyId  String            @map("company_id")
+  company    Company           @relation(fields: [companyId], references: [id])
+  templateId String            @map("template_id")
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id])
+  createdAt  DateTime          @default(now()) @map("created_at")
+
+  items ServiceChecklistItem[]
+
+  @@index([serviceId])
+  @@index([companyId])
+  @@map("service_checklists")
+}
+
+/// Cada item guarda uma cópia (snapshot) do template no momento da
+/// criação — se o template mudar depois, checklists antigos não mudam.
+model ServiceChecklistItem {
+  id                 String              @id @default(uuid())
+  serviceChecklistId String              @map("service_checklist_id")
+  serviceChecklist   ServiceChecklist    @relation(fields: [serviceChecklistId], references: [id], onDelete: Cascade)
+  descricao          String
+  ordem              Int                 @default(0)
+  obrigatorio        Boolean             @default(true)
+  status             ChecklistItemStatus @default(PENDENTE)
+  userId             String?             @map("user_id")
+  user               User?               @relation(fields: [userId], references: [id])
+  checkedAt          DateTime?           @map("checked_at")
+
+  @@index([serviceChecklistId])
+  @@map("service_checklist_items")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TANATOPRAXIA
+// ─────────────────────────────────────────────────────────────────
+
+model TanatopraxiaRecord {
+  id                 String            @id @default(uuid())
+  serviceId          String            @map("service_id")
+  service            Service           @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  companyId          String            @map("company_id")
+  company            Company           @relation(fields: [companyId], references: [id])
+  tipo               TanatopraxiaTipo  @default(NAO_REALIZAR)
+  responsavelId      String?           @map("responsavel_id")
+  responsavel        User?             @relation("TanatopraxiaResponsavel", fields: [responsavelId], references: [id])
+  data               DateTime?
+  horaInicio         String?           @map("hora_inicio")
+  horaFim            String?           @map("hora_fim")
+  procedimentos      String?
+  materiaisUtilizados String?          @map("materiais_utilizados")
+  observacoes        String?
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  @@index([serviceId])
+  @@index([companyId])
+  @@map("tanatopraxia_records")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// VEÍCULOS
+// ─────────────────────────────────────────────────────────────────
+
+model Vehicle {
+  id            String        @id @default(uuid())
+  companyId     String        @map("company_id")
+  company       Company       @relation(fields: [companyId], references: [id])
+  placa         String
+  marca         String?
+  modelo        String?
+  ano           Int?
+  kmAtual       Int           @default(0) @map("km_atual")
+  responsavelId String?       @map("responsavel_id")
+  responsavel   User?         @relation("VehicleResponsavel", fields: [responsavelId], references: [id])
+  status        VehicleStatus @default(DISPONIVEL)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  deletedAt     DateTime?     @map("deleted_at")
+
+  services     Service[]
+  movements    VehicleMovement[]
+  maintenances VehicleMaintenance[]
+
+  @@unique([companyId, placa])
+  @@index([companyId])
+  @@map("vehicles")
+}
+
+/// kmFinal >= kmInicial é validado na camada de serviço (Fase 10).
+/// Considerar adicionar um CHECK constraint via migration manual.
+model VehicleMovement {
+  id          String    @id @default(uuid())
+  vehicleId   String    @map("vehicle_id")
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id])
+  companyId   String    @map("company_id")
+  company     Company   @relation(fields: [companyId], references: [id])
+  motoristaId String?   @map("motorista_id")
+  motorista   User?     @relation("MovementMotorista", fields: [motoristaId], references: [id])
+  servicoId   String?   @map("servico_id")
+  servico     Service?  @relation(fields: [servicoId], references: [id])
+  kmInicial   Int       @map("km_inicial")
+  kmFinal     Int?      @map("km_final")
+  data        DateTime  @default(now())
+  observacao  String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([vehicleId])
+  @@index([companyId])
+  @@map("vehicle_movements")
+}
+
+model VehicleMaintenance {
+  id            String            @id @default(uuid())
+  vehicleId     String            @map("vehicle_id")
+  vehicle       Vehicle           @relation(fields: [vehicleId], references: [id])
+  companyId     String            @map("company_id")
+  company       Company           @relation(fields: [companyId], references: [id])
+  tipo          MaintenanceType
+  status        MaintenanceStatus @default(AGENDADA)
+  data          DateTime?
+  km            Int?
+  descricao     String?
+  custoCentavos Int?              @map("custo_centavos")
+  responsavelId String?           @map("responsavel_id")
+  responsavel   User?             @relation("MaintenanceResponsavel", fields: [responsavelId], references: [id])
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  @@index([vehicleId])
+  @@index([companyId])
+  @@map("vehicle_maintenance")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// EQUIPE
+// ─────────────────────────────────────────────────────────────────
+
+model Employee {
+  id            String         @id @default(uuid())
+  companyId     String         @map("company_id")
+  company       Company        @relation(fields: [companyId], references: [id])
+  userId        String?        @unique @map("user_id")
+  user          User?          @relation(fields: [userId], references: [id])
+  nome          String
+  cpf           String?
+  telefone      String?
+  email         String?
+  cargo         String?
+  setor         String?
+  turnoId       String?        @map("turno_id")
+  turno         Shift?         @relation(fields: [turnoId], references: [id])
+  status        EmployeeStatus @default(ATIVO)
+  dataAdmissao  DateTime?      @map("data_admissao")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  deletedAt     DateTime?      @map("deleted_at")
+
+  @@index([companyId])
+  @@map("employees")
+}
+
+model Shift {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  company     Company  @relation(fields: [companyId], references: [id])
+  nome        String
+  horaInicio  String   @map("hora_inicio")
+  horaFim     String   @map("hora_fim")
+  diasSemana  Json     @map("dias_semana")
+  ativo       Boolean  @default(true)
+
+  employees Employee[]
+
+  @@index([companyId])
+  @@map("shifts")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ESTOQUE / URNAS
+// ─────────────────────────────────────────────────────────────────
+
+model InventoryProduct {
+  id            String            @id @default(uuid())
+  companyId     String            @map("company_id")
+  company       Company           @relation(fields: [companyId], references: [id])
+  nome          String
+  categoria     InventoryCategory
+  codigo        String?
+  unidade       String?
+  quantidade    Int               @default(0)
+  estoqueMinimo Int               @default(0) @map("estoque_minimo")
+  ativo         Boolean           @default(true)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  deletedAt     DateTime?         @map("deleted_at")
+
+  movements InventoryMovement[]
+
+  @@index([companyId])
+  @@map("inventory_products")
+}
+
+model InventoryMovement {
+  id         String                @id @default(uuid())
+  productId  String                @map("product_id")
+  product    InventoryProduct      @relation(fields: [productId], references: [id])
+  companyId  String                @map("company_id")
+  company    Company               @relation(fields: [companyId], references: [id])
+  tipo       InventoryMovementType
+  quantidade Int
+  motivo     String?
+  userId     String?               @map("user_id")
+  user       User?                 @relation(fields: [userId], references: [id])
+  createdAt  DateTime              @default(now()) @map("created_at")
+
+  @@index([productId])
+  @@index([companyId])
+  @@map("inventory_movements")
+}
+
+model Urn {
+  id            String    @id @default(uuid())
+  companyId     String    @map("company_id")
+  company       Company   @relation(fields: [companyId], references: [id])
+  modelo        String
+  fabricante    String?
+  tamanho       String?
+  material      String?
+  acabamento    String?
+  quantidade    Int       @default(0)
+  estoqueMinimo Int       @default(0) @map("estoque_minimo")
+  status        UrnStatus @default(DISPONIVEL)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  services Service[]
+
+  @@index([companyId])
+  @@map("urns")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TAREFAS
+// ─────────────────────────────────────────────────────────────────
+
+model Task {
+  id            String       @id @default(uuid())
+  companyId     String       @map("company_id")
+  company       Company      @relation(fields: [companyId], references: [id])
+  titulo        String
+  descricao     String?
+  responsavelId String?      @map("responsavel_id")
+  responsavel   User?        @relation("TaskResponsavel", fields: [responsavelId], references: [id])
+  criadorId     String       @map("criador_id")
+  criador       User         @relation("TaskCriador", fields: [criadorId], references: [id])
+  prioridade    TaskPriority @default(NORMAL)
+  status        TaskStatus   @default(A_FAZER)
+  dataInicio    DateTime?    @map("data_inicio")
+  prazo         DateTime?
+  servicoId     String?      @map("servico_id")
+  servico       Service?     @relation(fields: [servicoId], references: [id])
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  deletedAt     DateTime?    @map("deleted_at")
+
+  comments    TaskComment[]
+  attachments TaskAttachment[]
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@map("tasks")
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  taskId    String   @map("task_id")
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  companyId String   @map("company_id")
+  company   Company  @relation(fields: [companyId], references: [id])
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  texto     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([taskId])
+  @@map("task_comments")
+}
+
+/// Metadados apenas — o binário fica em storage compatível com S3 (item 37).
+model TaskAttachment {
+  id         String   @id @default(uuid())
+  taskId     String   @map("task_id")
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  companyId  String   @map("company_id")
+  company    Company  @relation(fields: [companyId], references: [id])
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  storageKey String   @map("storage_key")
+  filename   String
+  mimeType   String?  @map("mime_type")
+  sizeBytes  Int?     @map("size_bytes")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([taskId])
+  @@map("task_attachments")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// NOTIFICAÇÕES
+// ─────────────────────────────────────────────────────────────────
+
+model Notification {
+  id         String   @id @default(uuid())
+  companyId  String   @map("company_id")
+  company    Company  @relation(fields: [companyId], references: [id])
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  tipo       String
+  titulo     String
+  mensagem   String?
+  lida       Boolean  @default(false)
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@index([userId, lida])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// BILLING
+// ─────────────────────────────────────────────────────────────────
+
+model Plan {
+  id               String   @id @default(uuid())
+  nome             String   @unique
+  precoCentavos    Int      @map("preco_centavos")
+  limiteUsuarios   Int      @map("limite_usuarios")
+  features         Json
+  ativo            Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id               String             @id @default(uuid())
+  companyId        String             @map("company_id")
+  company          Company            @relation(fields: [companyId], references: [id])
+  planId           String             @map("plan_id")
+  plan             Plan               @relation(fields: [planId], references: [id])
+  status           SubscriptionStatus @default(TRIAL)
+  trialEndsAt      DateTime?          @map("trial_ends_at")
+  currentPeriodEnd DateTime?          @map("current_period_end")
+  canceledAt       DateTime?          @map("canceled_at")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  payments Payment[]
+
+  @@index([companyId])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  subscriptionId String        @map("subscription_id")
+  subscription   Subscription  @relation(fields: [subscriptionId], references: [id])
+  companyId      String        @map("company_id")
+  company        Company       @relation(fields: [companyId], references: [id])
+  valorCentavos  Int           @map("valor_centavos")
+  status         PaymentStatus @default(PENDING)
+  gatewayRef     String?       @map("gateway_ref")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  events PaymentEvent[]
+
+  @@index([companyId])
+  @@index([subscriptionId])
+  @@map("payments")
+}
+
+/// O backend SEMPRE valida o evento do gateway aqui — nunca confia em
+/// confirmação de pagamento vinda apenas do frontend (item 31).
+model PaymentEvent {
+  id          String    @id @default(uuid())
+  paymentId   String    @map("payment_id")
+  payment     Payment   @relation(fields: [paymentId], references: [id])
+  tipoEvento  String    @map("tipo_evento")
+  payload     Json
+  processedAt DateTime? @map("processed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([paymentId])
+  @@map("payment_events")
+}
