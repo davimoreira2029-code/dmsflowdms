@@ -59,6 +59,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Verificar limite de usuarios do plano
+    const userCount = await prisma.user.count({ where: { companyId, status: "ACTIVE" } });
+    const subscription = await prisma.subscription.findFirst({ where: { companyId, status: "ACTIVE" }, include: { plan: true }, orderBy: { createdAt: "desc" } });
+    const limite = subscription?.plan?.limiteUsuarios ?? 5;
+    if (userCount >= limite) {
+      return NextResponse.json({ success: false, data: null, error: "USER_LIMIT_REACHED", message: "Limite de " + limite + " usuarios atingido. Faca upgrade do seu plano para adicionar mais usuarios." }, { status: 403 });
+    }
     const passwordHash = await bcrypt.hash(parsed.data.temporaryPassword, 12);
 
     const user = await prisma.user.create({
@@ -111,3 +118,4 @@ function handleError(err: unknown) {
     { status: 500 },
   );
 }
+
