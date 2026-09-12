@@ -21,7 +21,7 @@ export default function ChecklistActions({ template }: { template: Template }) {
   return (
     <div style={{display:"flex",gap:"8px"}}>
       <button onClick={handlePrint} style={{fontSize:"12px",padding:"4px 10px",border:"1px solid #ddd",borderRadius:"4px",cursor:"pointer"}}>Imprimir</button>
-<button onClick={() => alert("Em breve: edição de checklist!")} style={{fontSize:"12px",padding:"4px 10px",border:"1px solid #bfdbfe",borderRadius:"4px",cursor:"pointer",color:"#3b82f6"}}>Editar</button>
+<button onClick={() => alert} style={{fontSize:"12px",padding:"4px 10px",border:"1px solid #bfdbfe",borderRadius:"4px",cursor:"pointer",color:"#3b82f6"}}>Editar</button>
       <button onClick={handleDelete} style={{fontSize:"12px",padding:"4px 10px",border:"1px solid #fca5a5",borderRadius:"4px",cursor:"pointer",color:"#ef4444"}}>Excluir</button>
     </div>
   );
