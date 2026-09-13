@@ -120,9 +120,9 @@ export default function ChecklistActions({ template }: { template: Template }) {
               <div className="space-y-2 mt-1">
                 {items.map((item, idx) => (
                   <div key={item.id} className="flex gap-2 items-center">
-                    <input className="flex-1 border border-neutral-200 rounded px-3 py-1.5 text-sm" value={item.descricao} onChange={e => { const arr = [...items]; arr[idx].descricao = e.target.value; setItems(arr); }} />
+                    <input className="flex-1 border border-neutral-200 rounded px-3 py-1.5 text-sm" value={item.descricao} onChange={e => { setItems(p=>p.map((it,i)=>i===idx?{...it,descricao:e.target.value}:it)); }} />
                     <label className="text-xs text-neutral-500 flex items-center gap-1">
-                      <input type="checkbox" checked={item.obrigatorio} onChange={e => { const arr = [...items]; arr[idx].obrigatorio = e.target.checked; setItems(arr); }} />
+                      <input type="checkbox" checked={item.obrigatorio} onChange={e => { setItems(p=>p.map((it,i)=>i===idx?{...it,obrigatorio:e.target.checked}:it)); }} />
                       Obrig.
                     </label>
                     <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 text-xs">✕</button>
