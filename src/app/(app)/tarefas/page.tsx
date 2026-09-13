@@ -1,3 +1,4 @@
+import TarefaActions from "./TarefaActions";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth";
@@ -51,7 +52,7 @@ export default async function TarefasPage() {
               <div className="flex items-center gap-2">
                 <Badge tone={PRIORITY_TONE[t.prioridade] ?? "neutral"}>{t.prioridade}</Badge>
                 <span className="text-xs text-neutral-500">{STATUS_LABEL[t.status] ?? t.status}</span>
-              </div>
+              <TarefaActions tarefa={t} /></div>
             </Link>
           ))}
         </div>
