@@ -10,7 +10,7 @@ interface Tarefa {
   status: string;
 }
 
-const STATUS_LABEL: Record<string, string> = { A_FAZER: "A fazer", EM_ANDAMENTO: "Em andamento", CONCLUIDA: "Concluída", CANCELADA: "Cancelada" };
+const STATUS_LABEL: Record<string, string> = { A_FAZER: "A fazer", EM_ANDAMENTO: "Em andamento", CONCLUIDA: "Concluida", CANCELADA: "Cancelada" };
 
 export default function TarefaActions({ tarefa }: { tarefa: Tarefa }) {
   const router = useRouter();
@@ -47,7 +47,7 @@ export default function TarefaActions({ tarefa }: { tarefa: Tarefa }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ background: "white", borderRadius: "8px", padding: "24px", width: "90%", maxWidth: "500px" }}>
         <h2 style={{ marginBottom: "16px", fontWeight: 600 }}>Editar Tarefa</h2>
-        <div style={{ marginBottom: "8px" }}>Título<br /><input style={{ width: "100%", border: "1px solid #ddd", borderRadius: "4px", padding: "8px", boxSizing: "border-box" }} value={titulo} onChange={e => setTitulo(e.target.value)} /></div>
-        <div style={{ marginBottom: "8px" }}>Descrição<br /><textarea style={{ width: "100%", border: "1px solid #ddd", borderRadius: "4px", padding: "8px", boxSizing: "border-box", height: "80px" }} value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
+        <div style={{ marginBottom: "8px" }}>Titulo<br /><input style={{ width: "100%", border: "1px solid #ddd", borderRadius: "4px", padding: "8px", boxSizing: "border-box" }} value={titulo} onChange={e => setTitulo(e.target.value)} /></div>
+        <div style={{ marginBottom: "8px" }}>Descricao<br /><textarea style={{ width: "100%", border: "1px solid #ddd", borderRadius: "4px", padding: "8px", boxSizing: "border-box", height: "80px" }} value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
         <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
           <div style={{ flex: 1 }}>Prioridade<br /><select style={{ width: "100%", border: "1px solid #ddd", borderRadius: "4px", padding: "8px" }} value={prioridade} onChange={e => setPrioridade(e.target.value)}><option value="URGENTE">URGENTE</option><option value="ALTA">ALTA</option><option value="NORMAL">NORMAL</option><option value="BAIXA">BAIXA</option></select></div>
