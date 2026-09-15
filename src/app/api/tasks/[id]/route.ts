@@ -41,7 +41,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { companyId } = await requireCompanyContext();
-    await requirePermission("WRITE");
+    await requirePermission("MANAGE_TASKS");
     const { prisma } = await import("@/server/db");
     await prisma.task.delete({ where: { id: params.id, companyId } });
     return NextResponse.json({ success: true, data: null, error: null, message: "Tarefa excluida." });
@@ -55,7 +55,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { companyId } = await requireCompanyContext();
-    await requirePermission("WRITE");
+    await requirePermission("MANAGE_TASKS");
     const { prisma } = await import("@/server/db");
     const body = await req.json();
     const task = await prisma.task.update({ where: { id: params.id, companyId }, data: { titulo: body.titulo, descricao: body.descricao, prioridade: body.prioridade, status: body.status } });
