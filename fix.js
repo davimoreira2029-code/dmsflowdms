@@ -1,9 +1,7 @@
 const fs = require('fs');
-let c = fs.readFileSync('src/app/(app)/urnas/page.tsx', 'utf8');
-c = c.replace('import { NewUrnForm }', 'import UrnActions from "./UrnActions";\nimport { NewUrnForm }');
-c = c.replace(
-  '<td className="px-4 py-3">\n                    {u.abaixoDoMinimo && <Badge tone="rejected">Abaixo do m',
-  '<td className="px-4 py-3"><UrnActions urna={u} /></td>\n                  <td className="px-4 py-3">\n                    {u.abaixoDoMinimo && <Badge tone="rejected">Abaixo do m'
-);
-fs.writeFileSync('src/app/(app)/urnas/page.tsx', c);
-console.log('OK', c.includes('UrnActions'));
+const path = 'src/app/api/tasks/[id]/route.ts';
+let c = fs.readFileSync(path, 'utf8');
+c = c.replace(/await requirePermission\("MANAGE_TASKS"\);/g, 'await requireRole("ADMIN_EMPRESA", "SUPER_ADMIN");');
+c = c.replace('import { requirePermission, UnauthorizedError, ForbiddenError } from "@/server/guards/require-role";', 'import { requireRole, UnauthorizedError, ForbiddenError } from "@/server/guards/require-role";');
+fs.writeFileSync(path, c);
+console.log('OK');
