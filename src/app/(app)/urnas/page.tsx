@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/server/auth";
 import { listUrns } from "@/server/services/urn.service";
 import { Badge } from "@/components/ui";
+import UrnActions from "./UrnActions";
 import { NewUrnForm } from "@/features/urns/new-urn-form";
 
 export default async function UrnasPage() {
@@ -37,6 +38,7 @@ export default async function UrnasPage() {
                   <td className="px-4 py-3 text-neutral-600">{u.fabricante ?? "—"}</td>
                   <td className="px-4 py-3 text-neutral-600">{u.material ?? "—"}</td>
                   <td className="px-4 py-3">{u.quantidade}</td>
+                  <td className="px-4 py-3"><UrnActions urna={u} /></td>
                   <td className="px-4 py-3">
                     {u.abaixoDoMinimo && <Badge tone="rejected">Abaixo do mínimo</Badge>}
                   </td>
