@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCompanyContext, NoCompanyContextError } from "@/server/guards/require-tenant-scope";
 import { requirePermission } from "@/server/guards/require-permission";
-import { UnauthorizedError, ForbiddenError } from "@/server/guards/require-role";
+import { requireRole, UnauthorizedError, ForbiddenError } from "@/server/guards/require-role";
 import { getTaskDetail } from "@/server/services/task.service";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
